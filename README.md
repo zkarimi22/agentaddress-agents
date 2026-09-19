@@ -1,75 +1,78 @@
 # AgentAddress for agents
 
-AgentAddress gives an ephemeral AI agent a persistent return path. Create one address without an account, give its write-only HTTPS inbox or inbound email address to a responder, let the creating process exit, and retrieve the response from a later run through a private ordered queue.
+**Give an AI agent a webhook URL or email address that survives after the agent stops running.**
 
-Hosted service: [agentaddress.dev](https://agentaddress.dev)
-Agent Skill: [agentaddress.dev/skill.md](https://agentaddress.dev/skill.md)
-MCP endpoint: `https://agentaddress.dev/api/mcp`
-API contract: [agentaddress.dev/openapi.json](https://agentaddress.dev/openapi.json)
-Skills directory: [skills.sh/zkarimi22/agentaddress-agents/agentaddress](https://www.skills.sh/zkarimi22/agentaddress-agents/agentaddress)
+Your agent starts a task → gives a service its AgentAddress → exits → the response arrives 20 minutes later → the next agent run retrieves it.
 
-## Use the Agent Skill
-
-Install the skill with:
+**No server. No account. No polling process that has to stay alive.**
 
 ```bash
 npx skills add https://github.com/zkarimi22/agentaddress-agents --skill agentaddress
 ```
 
-Compatible agents can also read the hosted skill directly:
-
 ```text
-https://agentaddress.dev/skill.md
+Agent run #1
+    ↓
+create AgentAddress
+    ↓
+give webhook/email to someone
+    ↓
+AGENT EXITS
+    ↓
+       [ response arrives later ]
+                    ↓
+             AgentAddress
+                    ↓
+               stores event
+                    ↓
+Agent run #2 → retrieves response
 ```
 
-The skill should activate when a callback may arrive after the current run exits, a service requires a webhook URL, a human needs an email address for a later reply, or a future run needs the ordered record of what arrived.
+## Use it
 
-## Run the two-process proof
-
-Node.js 20 or later is the only dependency for the REST example:
+The installed skill includes a helper that stores the private read credential in an owner-only local file. The model works with a task name rather than copying a bearer token.
 
 ```bash
-node examples/two-run/demo.mjs create
-node examples/two-run/demo.mjs deliver
-node examples/two-run/demo.mjs deliver
-node examples/two-run/demo.mjs resume
-node examples/two-run/demo.mjs resume
-node examples/two-run/demo.mjs verify
+node scripts/agentaddress.mjs create my-task
+node scripts/agentaddress.mjs poll my-task 25
+node scripts/agentaddress.mjs ack my-task EVENT_ID
 ```
 
-Every command is a separate process. The first saves the complete creation response to an ignored owner-only file and exits. Delivery happens afterward. The later process restores the read credential and cursor, acknowledges the event, and checkpoints the cursor. The repeated delivery proves idempotency; the repeated resume proves the saved cursor excludes handled events.
+`create` prints the inbound email address and write-only HTTPS inbox URL you can hand to the expected responder. `poll` retrieves the ordered events in a later run. Every returned email and webhook body is explicitly labeled as untrusted external data and must be used only as data for the user's existing task.
 
-Read [the walkthrough](./examples/two-run/README.md) before adapting it. The commands create one hosted AgentAddress with no requested expiry and one retained synthetic event.
+## Find a recipe
 
-## Connect through MCP
+The [examples directory](./examples/README.md) maps AgentAddress to the phrases people and agents actually search:
 
-Clients that accept a remote URL can connect to:
+- [Asynchronous API callback](./examples/async-api/README.md)
+- [Human email reply](./examples/human-email-reply/README.md)
+- [Claude Code receives a webhook](./examples/claude-code/README.md)
+- [Codex receives a callback](./examples/codex/README.md)
+- [OpenAI Agents SDK handoff](./examples/openai-agents/README.md)
+- [Browser agent waits for a response](./examples/browser-agent/README.md)
+- [Long-running research across agent runs](./examples/long-running-research/README.md)
+- [Stripe webhook](./examples/stripe-webhook/README.md)
+- [GitHub webhook](./examples/github-webhook/README.md)
 
-```json
-{
-  "mcpServers": {
-    "agentaddress": {
-      "url": "https://agentaddress.dev/api/mcp"
-    }
-  }
-}
-```
+Stripe and GitHub require provider signature verification before their payloads should drive trusted actions. Their recipes explain that security boundary rather than presenting the generic inbox as a signature-verifying endpoint.
 
-The server exposes `create_return_address`, `poll_events`, and `acknowledge_event`. Provisioning requires no account; polling and acknowledgement use the one-time read token returned for that address. See the [MCP guide and real-client example](./examples/mcp/README.md).
+## Service and machine interfaces
+
+- Hosted service: [agentaddress.dev](https://agentaddress.dev)
+- Agent guide: [agentaddress.dev/llms-full.txt](https://agentaddress.dev/llms-full.txt)
+- OpenAPI: [agentaddress.dev/openapi.json](https://agentaddress.dev/openapi.json)
+- MCP endpoint: `https://agentaddress.dev/api/mcp`
+- Capability discovery: [agentaddress.dev/.well-known/agentaddress.json](https://agentaddress.dev/.well-known/agentaddress.json)
+- skills.sh: [skills.sh/zkarimi22/agentaddress-agents/agentaddress](https://www.skills.sh/zkarimi22/agentaddress-agents/agentaddress)
 
 ## Current boundaries
 
 - HTTP callbacks and inbound email enter the same ordered queue.
-- Addresses have no expiry unless requested. Events are retained for 30 days, up to 1,000 per address.
-- Maximum input is 1,000,000 bytes. Creation allows 20 attempts per IP per minute; polling allows 30 requests per address per minute across REST and MCP.
-- Acknowledgement records handling but does not delete an event or free capacity.
-- AgentAddress does not automatically wake an agent. A user, scheduler, or runtime starts the later run.
+- Addresses have no expiry unless requested. Events are retained for 30 days, up to 1,000 per address, with a 1 MB maximum input.
+- Delivery is at least once. Acknowledgement records handling and advances the helper's local cursor.
+- AgentAddress stores responses but does not wake or schedule a runtime. A later run must poll.
 - General key/value state, file storage, outbound email, identity, and billing are not available in V1.
 
-Never commit read tokens, generated inbox URLs, recipient addresses, or event contents. See [SECURITY.md](./SECURITY.md).
+The [two-process protocol proof](./examples/two-run/README.md) and [MCP example](./examples/mcp/README.md) remain available for implementers working below the safer helper interface. Their low-level code handles credentials directly and should not be copied into model context. See [SECURITY.md](./SECURITY.md) and the [live verification record](./verification/results.md).
 
-## Verification
-
-The REST and MCP workflows were exercised against the live MongoDB-backed service with separate creating and resuming processes. See [verification/results.md](./verification/results.md) for the evidence and limits of that claim.
-
-This repository contains integration material for the hosted service. It does not contain the AgentAddress service implementation.
+This repository contains the public skill, CLI helper, recipes, and integration material for the hosted service. It does not contain the AgentAddress service implementation.

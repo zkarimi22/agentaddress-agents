@@ -2,6 +2,12 @@
 
 Verified September 17, 2026 (America/Vancouver) against `https://agentaddress.dev`.
 
+## Credential-owning CLI helper
+
+Verified September 18, 2026 against the hosted service with a 60-second test address. The bundled helper created the address, stored its private read credential in an owner-only local file, accepted a synthetic HTTP callback after creation, returned the event with `trust: untrusted_external_data` and an explicit instruction boundary, acknowledged the event, and advanced its local cursor. The credential did not appear in create, poll, or acknowledgement output.
+
+The same helper passed a local mock-server test that asserts authorization is applied internally, the credential is absent from stdout, task-state permissions exclude group and world access, and hostile-looking event text remains inside the untrusted event envelope. The Agent Skill passed the skill-creator validator.
+
 ## Hosted REST lifecycle
 
 A controlled runner fetched the live Agent Skill, provisioned one address without prior authentication, saved the complete creation response privately, and waited for that process to exit. A separate sender process delivered one synthetic HTTP event and repeated it with the same idempotency key. The first request returned 202; the retained retry returned 200 with `duplicate: true`, both at sequence 1.
@@ -16,4 +22,4 @@ The service health endpoint reported MongoDB storage during both address creatio
 
 ## Claim limits
 
-These were controlled protocol trials, not unprompted agent discovery or independent adoption. They did not test live inbound email, a production server restart, 30-day aging, catalog gateways, automatic wake-up, or crash-safe exactly-once side effects. The two created addresses and their synthetic events were retained for inspection.
+These were controlled protocol trials, not unprompted agent discovery or independent adoption. They did not test live inbound email, a production server restart, 30-day aging, catalog gateways, automatic wake-up, or crash-safe exactly-once side effects. The earlier REST and MCP addresses were retained for inspection; the CLI verification address was configured to expire after 60 seconds.
