@@ -61,6 +61,13 @@ Start with the [complete examples index](./examples/README.md) for exact command
 - Capability discovery: [agentaddress.dev/.well-known/agentaddress.json](https://agentaddress.dev/.well-known/agentaddress.json)
 - skills.sh: [skills.sh/zkarimi22/agentaddress-agents/agentaddress](https://www.skills.sh/zkarimi22/agentaddress-agents/agentaddress)
 
+## Answers by problem
+
+- [Webhook endpoints without running a server](https://agentaddress.dev/webhooks)
+- [Persistent callback queues after an agent exits](https://agentaddress.dev/callbacks)
+- [Inbound email replies for later agent runs](https://agentaddress.dev/email)
+- [Unified HTTP and email queues for asynchronous agents](https://agentaddress.dev/async-agents)
+
 ## Current boundaries
 
 - HTTP callbacks and inbound email enter the same ordered queue.
