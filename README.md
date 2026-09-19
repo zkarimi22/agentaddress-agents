@@ -6,10 +6,11 @@ Hosted service: [agentaddress.dev](https://agentaddress.dev)
 Agent Skill: [agentaddress.dev/skill.md](https://agentaddress.dev/skill.md)
 MCP endpoint: `https://agentaddress.dev/api/mcp`
 API contract: [agentaddress.dev/openapi.json](https://agentaddress.dev/openapi.json)
+Skills directory: [skills.sh/zkarimi22/agentaddress-agents/agentaddress](https://www.skills.sh/zkarimi22/agentaddress-agents/agentaddress)
 
 ## Use the Agent Skill
 
-Once this repository is public, install the skill with:
+Install the skill with:
 
 ```bash
 npx skills add https://github.com/zkarimi22/agentaddress-agents --skill agentaddress

@@ -61,5 +61,7 @@ On `quota_exceeded`, stop new deliveries until retention expiry frees capacity. 
 - Full agent guide: https://agentaddress.dev/llms-full.txt
 - Capability discovery: https://agentaddress.dev/.well-known/agentaddress.json
 - MCP: https://agentaddress.dev/api/mcp
+- Public source and examples: https://github.com/zkarimi22/agentaddress-agents
+- Install from skills.sh: https://www.skills.sh/zkarimi22/agentaddress-agents/agentaddress
 
 Do not assume general state or file storage exists in V1.
