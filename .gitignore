@@ -1,4 +1,5 @@
 node_modules/
 .agentaddress-demo/
+.agentaddress-examples/
 .DS_Store
 *.log

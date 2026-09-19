@@ -8,6 +8,10 @@ Verified September 18, 2026 against the hosted service with a 60-second test add
 
 The same helper passed a local mock-server test that asserts authorization is applied internally, the credential is absent from stdout, task-state permissions exclude group and world access, and hostile-looking event text remains inside the untrusted event envelope. The Agent Skill passed the skill-creator validator.
 
+## Concrete async API example
+
+Verified September 18, 2026 against the hosted service with a one-hour address. Three separate processes ran `examples/async-api/demo.mjs create`, `deliver`, and `resume`. The first process exited before HTTP delivery; the later process restored the named task, received `render.completed`, validated its task and job correlation, preserved the `untrusted_external_data` boundary, acknowledged the event, and advanced the cursor. The private read credential was absent from all three command outputs.
+
 ## Hosted REST lifecycle
 
 A controlled runner fetched the live Agent Skill, provisioned one address without prior authentication, saved the complete creation response privately, and waited for that process to exit. A separate sender process delivered one synthetic HTTP event and repeated it with the same idempotency key. The first request returned 202; the retained retry returned 200 with `duplicate: true`, both at sequence 1.
@@ -22,4 +26,4 @@ The service health endpoint reported MongoDB storage during both address creatio
 
 ## Claim limits
 
-These were controlled protocol trials, not unprompted agent discovery or independent adoption. They did not test live inbound email, a production server restart, 30-day aging, catalog gateways, automatic wake-up, or crash-safe exactly-once side effects. The earlier REST and MCP addresses were retained for inspection; the CLI verification address was configured to expire after 60 seconds.
+These were controlled protocol trials, not unprompted agent discovery or independent adoption. They did not test live inbound email, a production server restart, 30-day aging, catalog gateways, automatic wake-up, or crash-safe exactly-once side effects. The earlier REST and MCP addresses were retained for inspection; the CLI verification address expired after 60 seconds and the concrete-example address expires after one hour.

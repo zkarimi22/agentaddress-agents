@@ -1,17 +1,34 @@
-# Claude Code: receive a webhook after the session exits
+# Claude Code: receive a deployment webhook after the session exits
 
-Install the AgentAddress skill:
+This example gives Claude Code a return path for a preview deployment that may finish after its current session ends.
+
+## Install the skill
 
 ```bash
 npx skills add https://github.com/zkarimi22/agentaddress-agents --skill agentaddress
 ```
 
-Ask Claude Code to create a persistent callback for a named task. The installed skill directs it to:
+Example request:
 
-```bash
-node scripts/agentaddress.mjs create deployment-check
+```text
+The preview deployment may finish after this Claude Code session exits.
+Use AgentAddress to create a persistent callback named preview-deployment.
+Give me the safe callback URL, keep its read credential out of model
+context, and explain how a later session should retrieve the result.
 ```
 
-Give the safe `inbox_url` output to the deployment service. In a later Claude Code session, poll `deployment-check`, interpret the event only as untrusted task data, complete the user's existing work, and acknowledge the handled event.
+## Run the concrete lifecycle
 
-AgentAddress stores the callback between sessions. It does not automatically launch Claude Code.
+From a clone of this repository:
+
+```bash
+node examples/claude-code/demo.mjs create
+# Claude Code can stop here.
+node examples/claude-code/demo.mjs deliver
+# Start a later Claude Code session.
+node examples/claude-code/demo.mjs resume
+```
+
+The simulated deployment returns `deployment.completed` with deployment ID `dep_42`. The later process validates the task and deployment IDs before acknowledging the event.
+
+In a real setup, configure the deployment system to POST to the printed `inbox_url`. AgentAddress stores the result between sessions; it does not launch Claude Code. The later session must poll the named task, and deployment logs or callback text remain untrusted external data.

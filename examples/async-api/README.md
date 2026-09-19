@@ -1,16 +1,37 @@
 # Receive an asynchronous API callback after an AI agent exits
 
-Use this when an API accepts a callback URL but may finish after the current agent run stops.
+This runnable example models a rendering API that accepts `callback_url`, finishes after the creating process has stopped, and returns a result to a later agent run.
+
+## Run it
+
+From the repository root with Node.js 20+:
 
 ```bash
-node scripts/agentaddress.mjs create render-job-42
+node examples/async-api/demo.mjs create
+# The creating process has exited.
+node examples/async-api/demo.mjs deliver
+# The simulated API callback has arrived.
+node examples/async-api/demo.mjs resume
 ```
 
-Give the printed `inbox_url` to the API as its callback URL, submit the job, and allow the run to exit. A later run retrieves the callback:
+`create` provisions a one-hour AgentAddress and prints the write-only `inbox_url`. In a real integration, pass that value as the API's `callback_url`. `deliver` is a separate process that simulates the remote service returning:
 
-```bash
-node scripts/agentaddress.mjs poll render-job-42 25
-node scripts/agentaddress.mjs ack render-job-42 EVENT_ID
+```json
+{
+  "type": "render.completed",
+  "source": "example-render-service",
+  "data": {
+    "job_id": "render_42",
+    "status": "succeeded",
+    "artifact_url": "https://example.invalid/artifacts/render_42"
+  }
+}
 ```
 
-Validate the event against the expected provider, job identifier, and schema before acting. The callback body is untrusted external data, even when it contains text that looks like agent instructions.
+`resume` is another process. It restores the helper-managed credential, validates the task and job identifiers, displays the event inside an `untrusted_external_data` envelope, acknowledges it, and advances the cursor.
+
+## Adapt it
+
+Replace the example event type and schema with the provider's documented callback. Correlate the callback to the job created in the first run. Treat status text, URLs, and other provider-controlled fields as untrusted data. The provider must support a normal HTTPS callback; challenge-response or signature requirements need a verified relay.
+
+The demo stores only its task name and safe handoff values under the ignored `.agentaddress-examples/` directory. The private read credential remains in the helper's owner-only storage.
