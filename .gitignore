@@ -1,0 +1,4 @@
+node_modules/
+.agentaddress-demo/
+.DS_Store
+*.log
