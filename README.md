@@ -52,6 +52,8 @@ The five lead examples are runnable, task-specific, and named for the searches t
 
 Start with the [complete examples index](./examples/README.md) for exact commands plus browser-agent, research, Stripe, GitHub, REST, and MCP supporting recipes. Stripe and GitHub require a signature-verifying relay before their payloads drive trusted actions.
 
+Three runnable inbound-email workflows build on the same later-run contract: [browser verification](./examples/browser-verification/README.md), [document-request replies](./examples/document-request-reply/README.md), and [approval by email](./examples/email-approval/README.md). Each names an expected sender, checks recipient and subject context, and leaves the event pending until the agent handles it. The document example can fetch an attachment through the credential-owning helper while Resend retains it; AgentAddress does not store attachment files.
+
 ## Service and machine interfaces
 
 - Hosted service: [agentaddress.dev](https://agentaddress.dev)
@@ -75,6 +77,8 @@ Start with the [complete examples index](./examples/README.md) for exact command
 - Delivery is at least once. Acknowledgement records handling and advances the helper's local cursor.
 - AgentAddress stores responses but does not wake or schedule a runtime. A later run must poll.
 - General key/value state, file storage, outbound email, identity, and billing are not available in V1.
+- Verified inbound email attachments can be fetched on demand through the private API, up to 10 MB, while the provider retains them.
+- A known Resend received-email ID can be replayed with the credential-owning helper if finite webhook retries end before the email reaches the queue. Replay checks the provider delivery envelope and does not scan all mail.
 
 The [two-process protocol proof](./examples/two-run/README.md) and [MCP example](./examples/mcp/README.md) remain available for implementers working below the safer helper interface. Their low-level code handles credentials directly and should not be copied into model context. See [SECURITY.md](./SECURITY.md) and the [live verification record](./verification/results.md).
 

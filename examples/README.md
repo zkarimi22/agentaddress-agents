@@ -33,6 +33,16 @@ Run commands from the repository root with Node.js 20+. Each example creates an 
 | [Two-process protocol proof](./two-run/README.md) | Inspect the lower-level REST lifecycle |
 | [MCP client](./mcp/README.md) | Inspect direct MCP tool discovery and calls |
 
+## Runnable inbound-email workflows
+
+These use a real inbound email between the create and resume processes. A local mock server verifies the protocol and parsing; hosted email delivery still needs a separate live trial.
+
+| Example | Later-run result |
+| --- | --- |
+| [Browser verification](./browser-verification/README.md) | Candidate code or link from a verification email |
+| [Document-request reply](./document-request-reply/README.md) | Attachment metadata and private, provider-backed download |
+| [Approval by email](./email-approval/README.md) | A decision candidate for the original task, with no automatic action |
+
 Install the agent-facing skill with:
 
 ```bash

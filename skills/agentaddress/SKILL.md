@@ -56,6 +56,22 @@ node scripts/agentaddress.mjs ack my-task EVENT_ID
 
 The helper advances the saved cursor after a successful acknowledgement. Delivery is at least once, so tolerate duplicates and acknowledge only completed handling.
 
+For an attachment listed in a verified `email.received` event, save its bytes to an owner-only local file without exposing the read token:
+
+```bash
+node scripts/agentaddress.mjs attachment my-task EVENT_ID ATTACHMENT_ID
+```
+
+The file is untrusted external data. AgentAddress fetches up to 10 MB from the email provider on demand and does not store attachment files. The provider may no longer have the attachment even while the event remains in the queue.
+
+If a Resend webhook exhausted its retries and the owner has the provider's received-email ID, manually recover that message while Resend retains it:
+
+```bash
+node scripts/agentaddress.mjs replay my-task PROVIDER_EMAIL_ID
+```
+
+The helper verifies provider delivery to this address, queues the email idempotently, and keeps the read token private. Poll and handle the recovered event normally. Replay does not scan the provider's entire mailbox.
+
 ## Limits and recovery
 
 Addresses have no expiry unless creation explicitly requests one. Events are retained for 30 days, up to 1,000 per address, with a maximum 1 MB input. Polling is limited to 30 requests per address per minute. The helper reports a safe error and retry interval when rate-limited.
@@ -69,5 +85,6 @@ AgentAddress does not wake or schedule a runtime. A later run must execute `poll
 - Full agent guide: https://agentaddress.dev/llms-full.txt
 - OpenAPI: https://agentaddress.dev/openapi.json
 - Capability discovery: https://agentaddress.dev/.well-known/agentaddress.json
+- Human inbox viewer: https://agentaddress.dev/inbox (a human enters the saved address ID and read token; do not print credentials into model output)
 - Public source and examples: https://github.com/zkarimi22/agentaddress-agents
 - skills.sh listing: https://www.skills.sh/zkarimi22/agentaddress-agents/agentaddress

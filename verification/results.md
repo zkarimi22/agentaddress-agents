@@ -1,5 +1,9 @@
 # Verification results
 
+## Inbound email examples and attachment helper
+
+Verified October 3, 2026 against a local mock API. Separate create and resume processes passed for browser verification, document-request replies, and approval by email. Each matched the expected sender, recipient, subject context, and verified provider surface; none acknowledged before the task handled the event. The document example used the credential-owning helper to save attachment bytes in owner-only local storage without printing its read token. These tests simulate normalized inbound events. They do not establish live Resend delivery or provider attachment availability.
+
 Verified September 17, 2026 (America/Vancouver) against `https://agentaddress.dev`.
 
 ## Credential-owning CLI helper

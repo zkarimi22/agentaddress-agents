@@ -48,7 +48,7 @@ async function loadState(file) {
 }
 
 export async function runExample(config) {
-  const [command] = process.argv.slice(2);
+  const [command, senderArgument, subjectArgument] = process.argv.slice(2);
   const allowed = config.manualDelivery ? ["create", "resume"] : ["create", "deliver", "resume"];
   assert.ok(allowed.includes(command), `Use: node ${config.script} ${allowed.join("|")}`);
 
@@ -61,8 +61,16 @@ export async function runExample(config) {
     let saved = false;
     try {
       const task = `${config.slug}-${randomUUID()}`;
+      const expectedSender = senderArgument?.trim().toLowerCase();
+      if (config.expectedSenderRequired) {
+        assert.match(expectedSender || "", /^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Provide the expected sender email as the second argument.");
+      }
+      const subjectContains = config.subjectMode === "task" ? task : subjectArgument?.trim();
+      if (config.subjectMode === "argument") assert.ok(subjectContains && subjectContains.length <= 120, "Provide the expected subject fragment as the third argument.");
       const created = await runHelper(["create", task, String(config.expirySeconds)]);
-      const state = { version: 1, task, email: created.email, inbox_url: created.inbox_url };
+      const state = { version: 1, task, email: created.email, inbox_url: created.inbox_url,
+        ...(expectedSender ? { expected_sender: expectedSender } : {}),
+        ...(subjectContains ? { subject_contains: subjectContains } : {}) };
       await handle.writeFile(`${JSON.stringify(state, null, 2)}\n`);
       await handle.sync();
       saved = true;
@@ -72,6 +80,8 @@ export async function runExample(config) {
         task,
         email: created.email,
         inbox_url: created.inbox_url,
+        ...(expectedSender ? { expected_sender: expectedSender } : {}),
+        ...(subjectContains ? { subject_contains: subjectContains } : {}),
         next: config.createNext,
         expires_in_seconds: config.expirySeconds,
       });
@@ -109,10 +119,14 @@ export async function runExample(config) {
 
   const polled = await runHelper(["poll", state.task, "0"]);
   const handled = [];
+  const observed = [];
   for (const event of polled.events || []) {
-    config.validate?.(event, state.task);
-    const acknowledged = await runHelper(["ack", state.task, event.id]);
-    handled.push({ event_id: acknowledged.event_id, sequence: acknowledged.sequence });
+    const observation = config.validate?.(event, state.task, state);
+    if (observation) observed.push({ event_id: event.id, ...observation });
+    if (config.autoAcknowledge !== false) {
+      const acknowledged = await runHelper(["ack", state.task, event.id]);
+      handled.push({ event_id: acknowledged.event_id, sequence: acknowledged.sequence });
+    }
   }
   print({
     example: config.slug,
@@ -120,7 +134,9 @@ export async function runExample(config) {
     trust: polled.trust,
     safety: polled.safety,
     events: polled.events,
+    observations: observed,
     handled,
     next_cursor: handled.at(-1)?.sequence ?? polled.current_cursor,
+    ...(config.autoAcknowledge === false ? { next: "Handle the event, then run node scripts/agentaddress.mjs ack TASK EVENT_ID with the saved task name and event ID." } : {}),
   });
 }

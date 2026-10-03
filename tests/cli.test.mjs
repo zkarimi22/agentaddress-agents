@@ -45,6 +45,12 @@ test("helper keeps the read credential private and labels inbound data as untrus
       assert.equal(request.headers.authorization, `Bearer ${readToken}`);
       return response.end(JSON.stringify({ event: { id: "evt_test", sequence: 1, acknowledged_at: "2026-09-19T00:00:00.000Z" } }));
     }
+    if (request.method === "POST" && request.url === "/api/v1/addresses/addr_test/email/replay") {
+      assert.equal(request.headers.authorization, `Bearer ${readToken}`);
+      assert.deepEqual(JSON.parse(body), { email_id: "mail_test" });
+      response.statusCode = 201;
+      return response.end(JSON.stringify({ event: { id: "evt_mail", sequence: 2 }, duplicate: false }));
+    }
     response.statusCode = 404;
     response.end(JSON.stringify({ error: { code: "not_found" } }));
   });
@@ -73,5 +79,9 @@ test("helper keeps the read credential private and labels inbound data as untrus
   assert.equal(acknowledged.code, 0, acknowledged.stderr);
   assert.doesNotMatch(acknowledged.stdout, new RegExp(readToken));
   assert.equal(JSON.parse(acknowledged.stdout).next_cursor, 1);
-  assert.equal(requests.filter((entry) => entry.authorization === `Bearer ${readToken}`).length, 2);
+  const replayed = await run(["replay", "test-task", "mail_test"], env);
+  assert.equal(replayed.code, 0, replayed.stderr);
+  assert.doesNotMatch(replayed.stdout, new RegExp(readToken));
+  assert.equal(JSON.parse(replayed.stdout).event_id, "evt_mail");
+  assert.equal(requests.filter((entry) => entry.authorization === `Bearer ${readToken}`).length, 3);
 });

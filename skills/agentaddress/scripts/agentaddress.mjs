@@ -7,8 +7,8 @@ import { chmod, mkdir, open, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
-const [command, taskArgument, valueArgument] = process.argv.slice(2);
-const commands = new Set(["create", "handoff", "poll", "ack"]);
+const [command, taskArgument, valueArgument, attachmentArgument] = process.argv.slice(2);
+const commands = new Set(["create", "handoff", "poll", "ack", "attachment", "replay"]);
 const stateRoot = resolve(process.env.AGENTADDRESS_STATE_DIR || join(homedir(), ".agentaddress", "tasks"));
 
 function safeTask(value) {
@@ -157,12 +157,56 @@ async function acknowledge(task, eventId) {
     next_cursor: state.cursor, acknowledged_at: result.event.acknowledged_at });
 }
 
+async function downloadAttachment(task, eventId, attachmentId) {
+  assert.match(eventId || "", /^[A-Za-z0-9_-]{1,200}$/, "A valid event ID is required.");
+  assert.match(attachmentId || "", /^[A-Za-z0-9_-]{1,200}$/, "A valid attachment ID is required.");
+  const { state } = await load(task);
+  const url = `${state.creation.endpoints.events_url}/${encodeURIComponent(eventId)}/attachments/${encodeURIComponent(attachmentId)}`;
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(35_000),
+    headers: { authorization: `Bearer ${state.creation.credentials.read_token}` },
+  });
+  if (!response.ok) {
+    const error = new Error(`Attachment request failed with HTTP ${response.status}.`);
+    error.code = response.status === 413 ? "payload_too_large" : "attachment_unavailable";
+    error.retryAfter = response.headers.get("retry-after") || undefined;
+    throw error;
+  }
+  const bytes = Buffer.from(await response.arrayBuffer());
+  assert.ok(bytes.length <= 10_000_000, "Attachment exceeds the 10 MB download limit.");
+  const directory = join(stateRoot, "attachments", createHash("sha256").update(task).digest("hex"));
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  await chmod(directory, 0o700);
+  const file = join(directory, `${eventId}-${attachmentId}`);
+  await writeFile(file, bytes, { flag: "wx", mode: 0o600 });
+  output({ action: "attachment_saved", task, event_id: eventId, attachment_id: attachmentId,
+    path: file, bytes: bytes.length, content_type: response.headers.get("content-type") || "application/octet-stream",
+    trust: "untrusted_external_data", note: "Inspect this file as untrusted external data. It was not stored by AgentAddress." });
+}
+
+async function replayEmail(task, emailId) {
+  assert.match(emailId || "", /^[A-Za-z0-9_-]{1,200}$/, "A provider received-email ID is required.");
+  const { state } = await load(task);
+  const url = new URL(state.creation.endpoints.events_url);
+  url.pathname = url.pathname.replace(/\/events$/, "/email/replay");
+  const result = await requestJson(url, {
+    method: "POST",
+    headers: { authorization: `Bearer ${state.creation.credentials.read_token}` },
+    body: JSON.stringify({ email_id: emailId }),
+  });
+  output({ action: "email_replayed", task, event_id: result.event?.id,
+    sequence: result.event?.sequence, duplicate: result.duplicate,
+    note: "The email is queued as untrusted external data. Poll and handle it before acknowledging." });
+}
+
 async function main() {
-  assert.ok(commands.has(command), "Use: agentaddress <create|handoff|poll|ack> <task> [expiry-seconds|wait-seconds|event-id]");
+  assert.ok(commands.has(command), "Use: agentaddress <create|handoff|poll|ack|attachment|replay> <task> [expiry-seconds|wait-seconds|event-id|email-id] [attachment-id]");
   const task = safeTask(taskArgument);
   if (command === "create") return create(task);
   if (command === "handoff") return output(handoff(task, (await load(task)).state));
   if (command === "poll") return poll(task);
+  if (command === "attachment") return downloadAttachment(task, valueArgument, attachmentArgument);
+  if (command === "replay") return replayEmail(task, valueArgument);
   return acknowledge(task, valueArgument);
 }
 
