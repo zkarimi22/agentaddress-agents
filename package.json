@@ -1,8 +1,8 @@
 {
   "name": "agentaddress-agent-tools",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
-  "description": "Persistent webhooks, callbacks & email inboxes for AI agents — no server or account required.",
+  "description": "Persistent webhooks, callbacks & email inboxes for AI agents \u2014 no server or account required.",
   "homepage": "https://agentaddress.dev",
   "repository": {
     "type": "git",
@@ -10,7 +10,9 @@
   },
   "type": "module",
   "license": "MIT",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "bin": {
     "agentaddress": "./skills/agentaddress/scripts/agentaddress.mjs"
   },

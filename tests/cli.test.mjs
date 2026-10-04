@@ -85,3 +85,46 @@ test("helper keeps the read credential private and labels inbound data as untrus
   assert.equal(JSON.parse(replayed.stdout).event_id, "evt_mail");
   assert.equal(requests.filter((entry) => entry.authorization === `Bearer ${readToken}`).length, 3);
 });
+
+test("context and mail commands authenticate internally and reject uploading private helper state", async (context) => {
+  const root = await mkdtemp(join(tmpdir(), "agentaddress-capability-cli-"));
+  const privateRoot = join(root, "private");
+  const token = "do-not-print-capability-token";
+  let origin;
+  const requests = [];
+  const server = createServer(async (request, response) => {
+    let text = "";
+    for await (const chunk of request) text += chunk;
+    response.setHeader("content-type", "application/json");
+    if (request.url === "/api/v1/addresses") return response.end(JSON.stringify({ address: { id: "addr_cap", email: "cap@example.test" }, credentials: { read_token: token }, endpoints: { events_url: `${origin}/api/v1/addresses/addr_cap/events`, inbox_url: `${origin}/api/v1/inbox/addr_cap/write` } }));
+    assert.equal(request.headers.authorization, `Bearer ${token}`);
+    requests.push({ path: request.url, method: request.method, body: text && JSON.parse(text), key: request.headers["idempotency-key"] });
+    if (request.url === "/api/v1/addresses/addr_cap/state/progress") return response.end(JSON.stringify({ key: "progress", value: { step: "waiting" }, revision: 1 }));
+    if (request.url === "/api/v1/addresses/addr_cap/email/send") return response.end(JSON.stringify({ status: "accepted" }));
+    response.end(JSON.stringify({ contacts: [], outbound_configured: true }));
+  });
+  await new Promise((ready) => server.listen(0, "127.0.0.1", ready));
+  context.after(() => server.close());
+  origin = `http://127.0.0.1:${server.address().port}`;
+  const env = { AGENTADDRESS_URL: origin, AGENTADDRESS_STATE_DIR: privateRoot };
+  assert.equal((await run(["create", "cap-task"], env)).code, 0);
+  const { writeFile } = await import("node:fs/promises");
+  const stateFile = join(root, "progress.json");
+  const mailFile = join(root, "message.json");
+  await writeFile(stateFile, JSON.stringify({ step: "waiting" }));
+  await writeFile(mailFile, JSON.stringify({ to: "person@example.com", subject: "Test", text: "Authorized message" }));
+  for (const args of [["state-set", "cap-task", "progress", stateFile, "0"], ["state-get", "cap-task", "progress"], ["send", "cap-task", mailFile, "stable-key"], ["contacts", "cap-task"]]) {
+    const result = await run(args, env);
+    assert.equal(result.code, 0, result.stderr);
+    assert.doesNotMatch(result.stdout + result.stderr, new RegExp(token));
+    assert.match(result.stdout, /untrusted_external_data/);
+  }
+  assert.equal(requests[0].body.if_revision, 0);
+  assert.equal(requests[2].key, "stable-key");
+  const [credentialFile] = await readdir(privateRoot);
+  const blocked = await run(["state-set", "cap-task", "oops", join(privateRoot, credentialFile)], env);
+  assert.equal(blocked.code, 1);
+  assert.match(blocked.stderr, /Private helper state cannot be uploaded/);
+  assert.doesNotMatch(blocked.stderr, new RegExp(token));
+  assert.equal(requests.length, 4);
+});

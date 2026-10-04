@@ -83,3 +83,13 @@ Three runnable inbound-email workflows build on the same later-run contract: [br
 The [two-process protocol proof](./examples/two-run/README.md) and [MCP example](./examples/mcp/README.md) remain available for implementers working below the safer helper interface. Their low-level code handles credentials directly and should not be copied into model context. See [SECURITY.md](./SECURITY.md) and the [live verification record](./verification/results.md).
 
 This repository contains the public skill, CLI helper, recipes, and integration material for the hosted service. It does not contain the AgentAddress service implementation.
+
+## Durable context and authorized mail
+
+Small JSON context is available with the same credential: [two-run state example](examples/durable-state). State changes join the ordered feed, while the values outlive the 30-day event history until replaced/deleted/address expiry.
+
+[Authorized outbound email](examples/outbound-email) supports plain text to verified contacts and replies to retained provider-verified messages. It requires operator-configured sending, recipient verification and user authorization. The configured sender uses the task inbox as Reply-To. No full conversation/search API or campaign tools are provided.
+
+AgentAddress is free today. A $17/month paid tier is planned; allowances and launch date are not finalized, and billing is disabled. See [pricing](https://agentaddress.dev/pricing).
+
+The CLI is installable directly from this MIT-licensed repository (`npm install -g github:zkarimi22/agentaddress-agents`); it is not published to npm. The [registry manifest](server.json) describes the hosted MCP endpoint. Registry publication and independent adoption must be verified separately.

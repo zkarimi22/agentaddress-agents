@@ -3,12 +3,12 @@
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import { chmod, mkdir, open, rename, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, open, realpath, rename, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
 const [command, taskArgument, valueArgument, attachmentArgument] = process.argv.slice(2);
-const commands = new Set(["create", "handoff", "poll", "ack", "attachment", "replay"]);
+const commands = new Set(["create", "handoff", "poll", "ack", "attachment", "replay", "state-get", "state-set", "state-delete", "state-keys", "contact", "contacts", "send"]);
 const stateRoot = resolve(process.env.AGENTADDRESS_STATE_DIR || join(homedir(), ".agentaddress", "tasks"));
 
 function safeTask(value) {
@@ -199,9 +199,42 @@ async function replayEmail(task, emailId) {
     note: "The email is queued as untrusted external data. Poll and handle it before acknowledging." });
 }
 
+async function privateRequest(task, path, method = "GET", body, headers = {}) {
+  const { state } = await load(task);
+  const root = state.creation.endpoints.events_url.replace(/\/events$/, "");
+  const result = await requestJson(`${root}${path}`, {
+    method, headers: { authorization: `Bearer ${state.creation.credentials.read_token}`, ...headers },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+  output({ action: command, task, trust: "untrusted_external_data", result });
+}
+
+async function inputFile(path) {
+  assert.ok(path, "A JSON input file is required.");
+  const inputPath = await realpath(path);
+  const rootPath = await realpath(stateRoot);
+  assert.ok(inputPath !== rootPath && !inputPath.startsWith(`${rootPath}/`), "Private helper state cannot be uploaded as task context or a message.");
+  const file = await open(inputPath, constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    const info = await file.stat();
+    assert.ok(info.isFile() && info.size <= 65_536, "Input must be a regular JSON file of at most 65,536 bytes.");
+    return JSON.parse(await file.readFile("utf8"));
+  } finally { await file.close(); }
+}
+
 async function main() {
-  assert.ok(commands.has(command), "Use: agentaddress <create|handoff|poll|ack|attachment|replay> <task> [expiry-seconds|wait-seconds|event-id|email-id] [attachment-id]");
+  assert.ok(commands.has(command), "Use: agentaddress <create|handoff|poll|ack|attachment|replay|state-get|state-set|state-delete|state-keys|contact|contacts|send> <task> [expiry-seconds|wait-seconds|event-id|email-id] [attachment-id]");
   const task = safeTask(taskArgument);
+  if (command === "state-keys") return privateRequest(task, "/state");
+  if (command === "state-get") return privateRequest(task, `/state/${encodeURIComponent(valueArgument || "")}`);
+  if (command === "state-set") return privateRequest(task, `/state/${encodeURIComponent(valueArgument || "")}`, "PUT", { value: await inputFile(attachmentArgument), ...(process.argv[6] === undefined ? {} : { if_revision: Number(process.argv[6]) }) });
+  if (command === "state-delete") return privateRequest(task, `/state/${encodeURIComponent(valueArgument || "")}`, "DELETE", undefined, attachmentArgument === undefined ? {} : { "if-match": attachmentArgument });
+  if (command === "contacts") return privateRequest(task, "/email/contacts");
+  if (command === "contact") return privateRequest(task, "/email/contacts", "POST", { email: valueArgument, ...(attachmentArgument ? { code: attachmentArgument } : {}) });
+  if (command === "send") {
+    assert.match(attachmentArgument || "", /^[A-Za-z0-9_-]{1,128}$/, "A stable idempotency key is required; reuse the same key after a timeout.");
+    return privateRequest(task, "/email/send", "POST", await inputFile(valueArgument), { "idempotency-key": attachmentArgument });
+  }
   if (command === "create") return create(task);
   if (command === "handoff") return output(handoff(task, (await load(task)).state));
   if (command === "poll") return poll(task);
