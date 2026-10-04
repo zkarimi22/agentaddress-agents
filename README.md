@@ -92,4 +92,4 @@ Small JSON context is available with the same credential: [two-run state example
 
 AgentAddress is free today. A $17/month paid tier is planned; allowances and launch date are not finalized, and billing is disabled. See [pricing](https://agentaddress.dev/pricing).
 
-The CLI is installable directly from this MIT-licensed repository (`npm install -g github:zkarimi22/agentaddress-agents`); it is not published to npm. The [registry manifest](server.json) describes the hosted MCP endpoint. Registry publication and independent adoption must be verified separately.
+The CLI is installable directly from this MIT-licensed repository (`npm install -g github:zkarimi22/agentaddress-agents`); it is not published to npm. The [registry manifest](server.json) describes the hosted MCP endpoint. Official MCP Registry version 0.2.0 was published and verified October 4, 2026 under `io.github.zkarimi22/agentaddress`. Independent adoption and downstream catalog inclusion remain separate milestones.
